@@ -20,5 +20,5 @@ def reply(db, recipient, channel, thread, *, at):
 def finish(db, call_key, state):
     if state not in {"sent", "failed"}:
         raise ValueError("invalid state")
-    db.execute("UPDATE messages SET state=? WHERE id=(SELECT id FROM messages WHERE call_key=? "
-               "AND state='pending' ORDER BY id DESC LIMIT 1)", (state, call_key))
+    db.execute("UPDATE messages SET state=? WHERE state='pending' AND id=(SELECT id FROM messages WHERE call_key=? "
+               "ORDER BY id DESC LIMIT 1)", (state, call_key))
