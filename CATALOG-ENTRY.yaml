@@ -1,8 +1,7 @@
-# DRAFT ONLY: AXIOM must replace OWNER-TBD and sha after repository creation,
-# host validation and review. Do not submit this placeholder as a catalog pin.
+# Catalog entry for hermes-gatekeeper. `sha` is pinned to the reviewed commit at submission.
 name: hermes-gatekeeper
 title: Gatekeeper
-repo: https://github.com/OWNER-TBD/hermes-gatekeeper
+repo: https://github.com/percyhendrux123-prog/hermes-gatekeeper
 sha: TBD
 subdir: ""
 version: "0.1.0"
@@ -14,22 +13,26 @@ platforms: [linux, macos]
 readme: true
 description: >-
   Gatekeeper enforces rules the owner configures; not legal advice and not a compliance guarantee.
-  Gates only recognized sends traversing Hermes pre_tool_call, with absolute suppression,
-  per-channel consent, recipient-local quiet hours and native approval requests for unanswered
-  threads or unapproved wording. send_message is not currently registered as a model tool;
-  direct core delivery and ordinary gateway replies are outside this boundary. Uses public
-  post_gateway_admission for observed STOP and DM replies, excluding control/approval/steering
-  traffic. Reads tool arguments, results and normalized inbound snapshots; writes profile-local
-  SQLite with recipient/thread hashes, message SHA-256, decision metadata, consent source/date,
-  timezone/region and owner template variables. No raw message-body log; hashes are not anonymity.
-  No network, subprocess, model calls, telemetry, credential reads, external file scans or core patches.
-  Native approve uses host policy/caches, not an independently verified fresh human answer.
+  A deterministic pre_tool_call gate for recognized outbound sends: literal `hermes send` and
+  `imsg send` terminal commands (including terminal calls made from execute_code), and a
+  send_message call if one ever traverses the hook. Hermes registers no model-callable
+  send_message tool, so connector, MCP, cron-delivery, browser and script-based sends are not
+  inspected. Rules: absolute suppression, per-channel consent and recipient-local quiet hours
+  (block), and native Hermes approval requests for unanswered threads, minimum gaps and
+  unapproved wording (the host auto-approves these under --yolo, approvals off and hermes -z).
+  Uses the public post_gateway_admission hook to record observed STOP keywords and DM replies
+  (excludes control, approval, steering and slash-command traffic). Reads tool arguments,
+  results and normalized inbound snapshots; writes only profile-local SQLite (owner-only
+  permissions) with recipient/thread hashes, message SHA-256, decision metadata, consent
+  source/date, timezone/region and owner template variables. No raw message-body log; hashes
+  are not anonymity. No network, subprocess, model calls, telemetry, credential reads, external
+  file scans or core patches. Invalid settings or storage errors block recognized sends.
 known_issues:
-  - "Draft: repository URL and exact 40-character SHA are pending operator publication."
-  - "Not an egress firewall: arbitrary scripts/APIs, direct delivery and later argument rewrites are not governed."
+  - "Not an egress firewall: connector/MCP/cron tools, scripts, direct delivery and later argument rewrites are not governed."
+  - "The agent-visible send path is the terminal tool; Hermes has no model-callable send_message tool."
+  - "approve rules are host-owned: --yolo, approvals.mode off and hermes -z auto-approve them; block rules still apply."
   - "Inbound hook omits control/approval/steering/slash traffic; manually record unseen optouts/replies."
   - "No address-book or alias/group-membership resolution; use stable target identities."
-  - "Native validation and codereview must pass on the export before catalog submission."
 capabilities:
   provides_tools: []
   provides_hooks: [pre_tool_call, post_tool_call, post_gateway_admission]

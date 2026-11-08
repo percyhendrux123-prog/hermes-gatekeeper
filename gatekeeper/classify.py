@@ -47,21 +47,55 @@ def native(args):
     return [Send(*target_parts(args.get("target")), message)]
 
 
+_PROGRAMS = {"imsg", "hermes", "hermes-agent", "hermes_cli", "hermes_cli.main"}
+_PROFILE_FLAGS = {"-p", "--profile"}
+
+
+def _locate_send(tokens):
+    """Return (program index, send index) of the first recognized send, else None.
+
+    Hermes accepts global options before a subcommand (``hermes -p NAME send``).
+    ``-p/--profile`` selects only credentials and is understood; any other global
+    option has unknown arity, so a ``send`` after it is refused rather than guessed.
+    """
+    for i, token in enumerate(tokens):
+        program = PurePosixPath(token).name
+        if program not in _PROGRAMS:
+            continue
+        if program == "imsg":
+            if tokens[i + 1:i + 2] == ["send"]:
+                return i, i + 1
+            continue
+        j = i + 1
+        while j < len(tokens) and tokens[j].startswith("-"):
+            if tokens[j] in _PROFILE_FLAGS:
+                j += 2
+            elif tokens[j].startswith("--profile="):
+                j += 1
+            elif "send" in tokens[j + 1:]:
+                raise ValueError("unsupported global option before send")
+            else:
+                break
+        if j < len(tokens) and tokens[j] == "send":
+            return i, j
+    return None
+
+
 def terminal(args):
     command = args.get("command")
     if not isinstance(command, str):
         raise ValueError("invalid terminal input")
     normalized = command.replace("\\\n", "")
-    raw_match = re.search(r"\b(?:imsg|hermes)\s+send\b", normalized.replace("'", "").replace('"', ""))
+    stripped = normalized.replace("'", "").replace('"', "")
+    raw_match = re.search(r"\b(?:imsg|hermes)\s+send\b", stripped)
     try:
         tokens = shlex.split(normalized)
     except ValueError:
-        if raw_match:
+        if raw_match or re.search(r"\b(?:imsg|hermes(?:-agent)?|hermes_cli(?:\.main)?)\b.*\bsend\b", stripped, re.S):
             raise ValueError("invalid recognized command")
         return []
-    found = raw_match or any(PurePosixPath(a).name in {"imsg", "hermes"} and b == "send"
-                             for a, b in zip(tokens, tokens[1:]))
-    if not found:
+    located = _locate_send(tokens)
+    if located is None and not raw_match:
         return []
     lex = shlex.shlex(normalized, posix=True, punctuation_chars=";&|()<>")
     lex.whitespace_split = True
@@ -69,25 +103,26 @@ def terminal(args):
     syntax = list(lex)
     if any(token and set(token) <= set(";&|()<>") for token in syntax) or any(c in command for c in "$`\n\r*?[]{}~"):
         raise ValueError("complex or expansion-bearing recognized shell command")
-    if len(tokens) < 3 or PurePosixPath(tokens[0]).name not in {"imsg", "hermes"} or tokens[1] != "send":
+    if located is None or located[0] != 0 or len(tokens) <= located[1] + 1:
         raise ValueError("wrapped send")
     program = PurePosixPath(tokens[0]).name
-    if program == "hermes" and tokens[2] in {"--list", "-l"} and len(tokens) in {3, 4}:
+    rest = tokens[located[1] + 1:]
+    if program != "imsg" and rest[0] in {"--list", "-l"} and len(rest) in {1, 2}:
         return []
     options, positional = {}, []
-    rest = iter(tokens[2:])
-    allowed = {"--to", "-t"} if program == "hermes" else {"--to", "--text", "--service"}
-    for token in rest:
+    values = iter(rest)
+    allowed = {"--to", "--text", "--service"} if program == "imsg" else {"--to", "-t"}
+    for token in values:
         if token.startswith("-"):
             if token not in allowed:
                 raise ValueError("unsupported send option")
             name = "--to" if token == "-t" else token
             if name in options:
                 raise ValueError("duplicate option")
-            options[name] = next(rest)  # missing values fail closed
+            options[name] = next(values)  # missing values fail closed
         else:
             positional.append(token)
-    if program == "hermes":
+    if program != "imsg":
         if len(positional) != 1:
             raise ValueError("literal message required")
         return native({"target": options["--to"], "message": positional[0]})

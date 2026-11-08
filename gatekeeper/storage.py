@@ -23,6 +23,12 @@ def recipient_id(value):
     return body_hash(canonical_recipient(value))
 
 
+def suppression_id(value):
+    """Suppression identity: the canonical recipient, case-folded (addresses such as
+    email are not case-sensitive, so a case variant must not escape an opt-out)."""
+    return body_hash(canonical_recipient(value).casefold())
+
+
 def thread_id(value):
     if not isinstance(value, str) or len(value) > 256:
         raise ValueError("invalid thread")
@@ -64,7 +70,7 @@ class Ledger:
 
     @staticmethod
     def optout(db, recipient):
-        db.execute("INSERT OR IGNORE INTO suppressions VALUES (?)", (recipient_id(recipient),))
+        db.execute("INSERT OR IGNORE INTO suppressions VALUES (?)", (suppression_id(recipient),))
 
     @staticmethod
     def log(db, channel, recipient, thread, message, rule, outcome, at):

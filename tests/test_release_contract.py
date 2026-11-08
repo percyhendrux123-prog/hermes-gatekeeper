@@ -47,3 +47,22 @@ def test_python_310_syntax_and_runtime_no_transport_imports():
         for node in ast.walk(tree):
             names = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or ""] if isinstance(node, ast.ImportFrom) else []
             assert not any(name.split(".")[0] in forbidden for name in names), (path.name, names)
+
+
+def test_public_files_carry_no_internal_references():
+    banned = ("AXIOM", "scaffold", "hermes-ref", "BUILD-PLAN", "REVIEW-BRIEF", "OWNER-TBD", "Standing")
+    for path in [ROOT / "README.md", ROOT / "CHANGELOG.md", ROOT / "CATALOG-ENTRY.yaml",
+                 *(ROOT / "docs").glob("*.md"), *(ROOT / "gatekeeper").glob("*.py")]:
+        text = path.read_text()
+        assert not [word for word in banned if word in text], path.name
+    catalog = (ROOT / "CATALOG-ENTRY.yaml").read_text()
+    assert "repo: https://github.com/percyhendrux123-prog/hermes-gatekeeper\n" in catalog
+
+
+def test_catalog_and_readme_state_the_real_send_path():
+    readme = (ROOT / "README.md").read_text()
+    catalog = (ROOT / "CATALOG-ENTRY.yaml").read_text()
+    for text in (readme, catalog):
+        assert "terminal" in text and "execute_code" in text
+    assert "not currently registered" in readme and "no model-callable send_message" in catalog
+    assert "connectors__" in readme and "cronjob_manage" in readme

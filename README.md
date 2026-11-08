@@ -6,19 +6,23 @@ this plugin—performs any permitted send and owns the approval interface.
 
 **Gatekeeper enforces rules the owner configures; not legal advice and not a compliance guarantee.**
 
-Version 0.1.0 is a local, unshipped candidate for the Nous Hermes Plugin Hackathon.
-Catalog publication and native host verification are separate release gates.
+**Read "What it gates—and what it does not" before relying on it.** In a stock Hermes
+agent turn the model has no `send_message` tool, so the call this plugin practically
+sees is a literal `hermes send …` / `imsg send …` run through the `terminal` tool.
+Connector, MCP, cron-delivery, browser and script-based sends are not inspected.
+
+Version 0.1.0. Checked against Hermes v0.23.0 with the real plugin loader, hook
+dispatcher and agent loop (scripted local model, stub send executables, invented
+contacts); it has not been run against live messaging platforms.
 
 ## Install
-
-Once the reviewed catalog entry is published:
 
 ```sh
 hermes plugins install hermes-gatekeeper
 hermes plugins enable hermes-gatekeeper
 ```
 
-Use the catalog name to get its reviewed immutable pin, not an unreviewed branch.
+Installing by catalog name gets the reviewed, pinned revision, not an unreviewed branch.
 Requires Hermes >=0.22.5, Python >=3.10 and Linux or macOS with timezone data.
 There are no third-party runtime dependencies or API keys. Restart/reload Hermes
 after changing settings; the policy is loaded at registration.
@@ -29,24 +33,40 @@ Gatekeeper registers `pre_tool_call`, `post_tool_call`, `post_gateway_admission`
 and the local-owner `/gatekeeper` command. It registers no model tools, middleware,
 transport, background job or core override.
 
-* `send_message` calls **that traverse `pre_tool_call`** are inspected using
-  `{"target":"platform:recipient[:thread]","message":"literal text"}`.
-  `action=list` is read-only. Unsupported action/options are blocked, not guessed.
-* Hermes's supplied core source says `send_message` is **not currently registered**
-  as a model tool. Direct helper use by the CLI, cron, notifier, adapters or an
-  MCP server is not automatically a tool-hook call. Gatekeeper does not register
-  or resurrect that tool. Ordinary gateway replies and streaming are not gated.
+* **What a live agent turn actually reaches.** The model-callable tool that can
+  send is `terminal`: Gatekeeper inspects literal `hermes send` and `imsg send`
+  commands there (including calls to `terminal` made from inside `execute_code`
+  scripts, which Hermes also routes through the hooks). Hermes's `send_message` is
+  **not currently registered** as a model-callable tool (see `toolsets.py` and the
+  note at the top of `tools/send_message_tool.py` in Hermes). Gatekeeper still
+  evaluates a `send_message`
+  call if one ever traverses `pre_tool_call` (for example from another plugin), using
+  `{"target":"platform:recipient[:thread]","message":"literal text"}`; `action=list`
+  is read-only and unsupported actions/options are blocked, not guessed. Gatekeeper
+  does not register or resurrect that tool.
+* **Not reached at all:** the `cronjob_manage` tool (scheduled delivery), hosted
+  connector tools (`connectors__<app>__…`, e.g. a Gmail or Slack send), MCP-server
+  tools, platform tools such as Discord or A2A, browser/computer-use driving of a
+  messaging app, and a script that sends from inside `execute_code` or `python -c`
+  (it is not seen as a send). Direct helper use by the CLI, cron, notifier or
+  adapters is not a tool-hook call. Ordinary gateway replies and streaming are not
+  gated.
 * Recognized `terminal` commands are `hermes send` and `imsg send`, including
-  explicit executable paths. Simple, single-line literal forms can be evaluated:
+  explicit executable paths, `hermes -p NAME send` / `--profile NAME`, and
+  `hermes-agent`. Simple, single-line literal forms can be evaluated:
 
   ```text
   hermes send --to sms:+1-555-0100 'Demo notice.'
   imsg send --service sms --to +1-555-0100 --text 'Demo notice.'
   ```
 
-  These are syntax examples, not commands the plugin runs. `imsg` needs explicit
+  These are syntax examples, not commands the plugin runs. For `hermes send` only
+  `--to`/`-t` and one literal message are understood; `--file`, `--subject`,
+  `--mention`, `--json`, `-q`, `--to=…`, stdin bodies and any other global option
+  before `send` are blocked as uninspectable. `imsg` needs explicit
   `sms` or `imessage` service; auto-service, chat-id lookup, file/stdin bodies,
-  subject/attachment flags, wrappers, pipelines and compound commands are blocked.
+  subject/attachment flags, wrappers (`env`, `sh -c`, `python -m hermes_cli.main`),
+  pipelines and compound commands are blocked.
   Expansion-bearing characters (`$`, backticks, `*?[]{}~`) and raw newlines/continuations
   are conservatively blocked **even when quoted**, rather than approximating shell
   expansion. `hermes send --list` remains read-only. Mentioning a recognized send
@@ -54,17 +74,22 @@ transport, background job or core override.
 * Deferred `tool_call` / `multi_tool_use.parallel` batches are recursively checked;
   the strictest decision wins. Malformed/oversized/deep batches block. Leaves are
   checked again; the outer batch does not create duplicate send reservations.
+  Only `send_message` and `terminal` leaves are recognized: a `connectors__…` leaf in
+  such a batch is not inspected.
 * This is **not an egress firewall or an OS sandbox**. `curl`, `osascript`, custom
   scripts, encoded/dynamically constructed sends, renamed tools, direct Python
   calls and arbitrary connector tools are out of scope. Other hooks/middleware
   can rewrite arguments later; Gatekeeper cannot guarantee the final delivered
-  payload in that composition. Local code/config/database edits can defeat it.
+  payload in that composition. Local code/config/database edits can defeat it, and
+  sessions started with `--safe-mode`/`--ignore-user-config` load no plugin hooks.
 
 Use stable recipient/chat IDs, not directory/display names or implicit home channels.
 `#channel` aliases are refused. Telegram/Discord/Slack thread suffixes are separated;
 other platform address strings (including Matrix server names) remain intact.
 Phone-format spaces/parentheses/hyphens after `+` normalize for record matching.
-Other identities are exact, case-sensitive strings. There is no address-book,
+Consent and thread history match identities as exact, case-sensitive strings;
+suppression matches case-insensitively, so a case variant of an opted-out address
+is still suppressed. There is no address-book,
 account, alias or group-membership lookup. Suppressing a person's user ID does not
 prove every alternate DM chat/group/address for them is suppressed; record each
 known identity. `require_consent: true` blocks unrecorded alternate addresses.
@@ -90,7 +115,12 @@ windows are **owner-supplied**, not a built-in jurisdiction or legal database.
 
 An `approve` directive requests Hermes's native approval gate. It is not an
 independent observation of a fresh human answer: host approval modes (including
-smart/YOLO/off), unattended behavior and cached scopes remain host-owned. Gatekeeper
+smart/YOLO/off), unattended behavior and cached scopes remain host-owned. With no
+human or approval bridge present (for example a plain scripted turn) the host fails
+closed and the send does not run. But `hermes -z`/`--oneshot`, `--yolo` and
+`approvals.mode: off` auto-approve, so in those modes every `approve` rule above is
+a no-op and only the `block` rules (suppression, consent, quiet hours, errors)
+still stop a send. Gatekeeper
 never auto-answers a prompt or disables a guard. Its rule key binds the current
 arguments/session/call, but it does not override host approval policy. Policy is
 checked at the hook boundary, not rechecked after a delayed approval; a suppression
@@ -100,9 +130,11 @@ or immutable outbound authorization.
 
 ## Owner setup and commands
 
-Every `/gatekeeper` command, including status/log, requires a host-supplied local
-platform (`cli`, `tui`, `desktop`, `local`) and `source=None`, matching Standing's
-local-owner pattern. Remote or missing context is refused. This trusts the local
+Every `/gatekeeper` command, including status/log, requires a local session: the
+host-supplied `platform` is `cli`, `tui`, `desktop` or `local` and `source` is either
+`None` or a source whose platform is `local` (Hermes runs slash commands of local
+sessions in the gateway and passes such a source). Messaging platforms, remote
+sources and missing context are refused. This trusts the local
 OS/session owner; it is not a second authentication factor. These commands are
 not agent-callable tools. All examples below are invented demo data.
 
@@ -229,9 +261,8 @@ hermes plugins validate . --install-deps
 hermes plugins doctor . --ci
 ```
 
-Tests and dry-run use invented data, temporary SQLite and synthetic public host
-contexts; they never send messages. Native validate/doctor and approval/dispatch
-smoke tests require a real Hermes host and remain distinct from stub registration
-tests. The catalog draft intentionally leaves the repository owner and SHA pending
-AXIOM's publication. Do not submit it until those placeholders and host checks are
-resolved. See `docs/BUILD-PLAN.md`, `docs/HOST-CONTRACTS.md` and `docs/REVIEW-BRIEF.md`.
+Tests and the dry-run use invented data, temporary SQLite and synthetic public host
+contexts; they never send messages. Behavior against a real Hermes host (plugin
+loader, hook dispatcher, approval gate, local-session slash-command context) is
+exercised separately with `hermes plugins validate`/`doctor` and the manual checks in
+`docs/HOST-CONTRACTS.md`.

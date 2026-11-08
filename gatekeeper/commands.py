@@ -13,9 +13,24 @@ USAGE = ("Usage: /gatekeeper [log [1-50] | optout <recipient> | "
          "variables <recipient> <channel> '<JSON object>']")
 
 
+def _local_context(platform, source):
+    """True only for a local terminal/desktop session.
+
+    The classic CLI, TUI and Desktop run plugin commands in the gateway that owns the
+    session, which passes ``platform="local"`` and a ``SessionSource`` whose platform is
+    local. Messaging platforms, or any source naming another platform, are refused.
+    """
+    if platform not in {"cli", "tui", "desktop", "local"}:
+        return False
+    if source is None:
+        return True
+    origin = source.get("platform") if isinstance(source, dict) else getattr(source, "platform", None)
+    return getattr(origin, "value", origin) == "local"
+
+
 def command(service, raw="", *, platform="", source=None, **kwargs):
-    # Public calling-session keywords; same local-owner boundary as Standing.
-    if platform not in {"cli", "tui", "desktop", "local"} or source is not None:
+    # Public calling-session keywords (plugin developer guide, slash commands).
+    if not _local_context(platform, source):
         return "Only the local owner at a Hermes terminal or desktop can use Gatekeeper commands."
     try:
         parts = shlex.split(raw)
