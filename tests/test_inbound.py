@@ -26,7 +26,8 @@ def test_different_sender_and_dm_destination_are_both_suppressed(service):
 
 def test_admitted_dm_reply_clears_only_its_thread_and_never_grants_consent(service):
     seed(service)
-    service.before("send_message", payload())
+    service.before("send_message", payload(), tool_call_id="one")
+    service.after("send_message", payload(), result='{"success":true}', status="ok", tool_call_id="one")
     assert service.inbound(platform="sms", source=source(), message_id="reply-1", text="synthetic reply") is None
     assert service.before("send_message", payload()) is None
     # Replay an old ingress event cannot clear a newer outbound reservation.

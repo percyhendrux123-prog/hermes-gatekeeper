@@ -106,9 +106,9 @@ class Gatekeeper:
                         state = "sent"
                 elif type(data.get("exit_code")) is int and data["exit_code"] == 0:
                     state = "sent"
-            if state:
+            if state and isinstance(kwargs.get("tool_call_id"), str) and kwargs["tool_call_id"]:
                 with self.ledger.transaction() as db:
-                    history.finish(db, call_key(tool_name, args, kwargs), state)
+                    history.finish(db, call_key(tool_name, args, kwargs), state, at=self.now().timestamp())
         except Exception:
             self.unhealthy.set()
             logger.warning("Gatekeeper send observation failed; further sends are blocked until owner repair and reload.")

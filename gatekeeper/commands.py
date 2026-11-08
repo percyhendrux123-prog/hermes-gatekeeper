@@ -46,7 +46,7 @@ def command(service, raw="", *, platform="", source=None, **kwargs):
                 consent.revoke(db, *args)
                 return "Gatekeeper: channel consent revoked."
             if name == "reply" and len(args) in {2, 3}:
-                history.reply(db, args[0], args[1], args[2] if len(args) == 3 else "", at=service.now().timestamp())
+                history.reply(db, args[0], args[1], args[2] if len(args) == 3 else "", at=service.now().timestamp(), owner=True)
                 return "Gatekeeper: owner-observed reply recorded. No consent was granted."
             if name == "variables" and len(args) == 3:
                 recipient, channel, raw_values = args

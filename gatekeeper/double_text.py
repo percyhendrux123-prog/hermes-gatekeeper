@@ -4,6 +4,9 @@ from .history import key
 
 def check(db, recipient, channel, thread, *, now, min_gap=0):
     identity = key(recipient, channel, thread)
+    if db.execute("SELECT 1 FROM messages WHERE recipient_id=? AND channel=? AND thread_id=? "
+                  "AND state='pending' LIMIT 1", identity).fetchone():
+        return "approve", "unanswered"
     last = db.execute("SELECT direction FROM messages WHERE recipient_id=? AND channel=? AND thread_id=? "
                       "AND state!='failed' ORDER BY id DESC LIMIT 1", identity).fetchone()
     if last and last["direction"] == "ours":
