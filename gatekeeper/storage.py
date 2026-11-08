@@ -34,6 +34,9 @@ _SCHEMA = (
     "source TEXT NOT NULL, date TEXT NOT NULL, timezone TEXT NOT NULL, region TEXT NOT NULL, "
     "variables TEXT NOT NULL DEFAULT '{}', PRIMARY KEY(recipient_id,channel))",
     "CREATE TABLE IF NOT EXISTS suppressions (recipient_id TEXT PRIMARY KEY)",
+    "CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, recipient_id TEXT NOT NULL, "
+    "channel TEXT NOT NULL, thread_id TEXT NOT NULL, at REAL NOT NULL, direction TEXT NOT NULL, "
+    "state TEXT NOT NULL, call_key TEXT, decision INTEGER UNIQUE)",
     "CREATE TABLE IF NOT EXISTS decisions (id INTEGER PRIMARY KEY, at REAL NOT NULL, "
     "channel TEXT NOT NULL, recipient_id TEXT NOT NULL, thread_id TEXT NOT NULL, "
     "body_hash TEXT NOT NULL, rule TEXT NOT NULL, outcome TEXT NOT NULL)",
