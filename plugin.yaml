@@ -1,0 +1,42 @@
+name: hermes-gatekeeper
+title: Gatekeeper
+version: "0.1.0"
+description: "Deterministic owner-configured policy gates for recognized outbound messaging tool calls."
+author: Percy Keith Stewart
+license: MIT
+requires_hermes: ">=0.22.5"
+api_version: 1
+provides_tools: []
+provides_hooks: [pre_tool_call, post_tool_call, post_gateway_admission]
+provides_middleware: []
+requires_env: []
+
+config_schema:
+  require_consent:
+    type: bool
+    default: true
+    description: "Require an explicit consent record for the exact recipient and channel. Suppression always applies."
+  start:
+    type: str
+    default: "08:00"
+    description: "Start of permitted recipient-local sending window (inclusive, HH:MM)."
+  end:
+    type: str
+    default: "21:00"
+    description: "End of permitted recipient-local sending window (exclusive, HH:MM)."
+  region_windows:
+    type: dict
+    default: {}
+    description: "Owner-supplied region/state code to [start,end] override. No jurisdiction rules are built in."
+  min_gap_seconds:
+    type: int
+    default: 0
+    description: "Additional minimum gap after any outbound in the thread, even after a reply (0-2678400). Unanswered or pending sends always hold, regardless of age."
+  templates:
+    type: list
+    default: []
+    description: "Exact routine wording, using $variable or ${variable} filled ONLY from owner-stored recipient variables. Empty means approval for every message."
+  stop_keywords:
+    type: list
+    default: [STOP, STOPALL, UNSUBSCRIBE, CANCEL, END, QUIT]
+    description: "Whole-text, case-insensitive STOP-family keywords after trimming whitespace. Not substring or language detection."

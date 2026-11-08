@@ -1,0 +1,37 @@
+# DRAFT ONLY: AXIOM must replace OWNER-TBD and sha after repository creation,
+# host validation and review. Do not submit this placeholder as a catalog pin.
+name: hermes-gatekeeper
+title: Gatekeeper
+repo: https://github.com/OWNER-TBD/hermes-gatekeeper
+sha: TBD
+subdir: ""
+version: "0.1.0"
+maintainer: Percy Keith Stewart
+tier: community
+category: automation
+requires_hermes: ">=0.22.5"
+platforms: [linux, macos]
+readme: true
+description: >-
+  Gatekeeper enforces rules the owner configures; not legal advice and not a compliance guarantee.
+  Gates only recognized sends traversing Hermes pre_tool_call, with absolute suppression,
+  per-channel consent, recipient-local quiet hours and native approval requests for unanswered
+  threads or unapproved wording. send_message is not currently registered as a model tool;
+  direct core delivery and ordinary gateway replies are outside this boundary. Uses public
+  post_gateway_admission for observed STOP and DM replies, excluding control/approval/steering
+  traffic. Reads tool arguments, results and normalized inbound snapshots; writes profile-local
+  SQLite with recipient/thread hashes, message SHA-256, decision metadata, consent source/date,
+  timezone/region and owner template variables. No raw message-body log; hashes are not anonymity.
+  No network, subprocess, model calls, telemetry, credential reads, external file scans or core patches.
+  Native approve uses host policy/caches, not an independently verified fresh human answer.
+known_issues:
+  - "Draft: repository URL and exact 40-character SHA are pending operator publication."
+  - "Not an egress firewall: arbitrary scripts/APIs, direct delivery and later argument rewrites are not governed."
+  - "Inbound hook omits control/approval/steering/slash traffic; manually record unseen optouts/replies."
+  - "No address-book or alias/group-membership resolution; use stable target identities."
+  - "Native validation and codereview must pass on the export before catalog submission."
+capabilities:
+  provides_tools: []
+  provides_hooks: [pre_tool_call, post_tool_call, post_gateway_admission]
+  provides_middleware: []
+  requires_env: []
