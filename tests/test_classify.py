@@ -28,7 +28,6 @@ def test_uninspectable_native_send_is_never_exempt(args):
     ("/usr/local/bin/hermes send -t telegram:15550100:42 'Demo notice.'", "telegram"),
     ("imsg send --to +1-555-0100 --text 'Demo notice.' --service sms", "sms"),
     ("imsg send --service imessage --to +1-555-0100 --text 'Demo notice.'", "imessage"),
-    ("imsg \\\nsend --service sms --to +1-555-0100 --text 'Demo notice.'", "sms"),
     ("im\\sg send --service sms --to +1-555-0100 --text 'Demo notice.'", "sms"),
 ])
 def test_simple_terminal_sends_are_inspected_without_execution(command, channel):

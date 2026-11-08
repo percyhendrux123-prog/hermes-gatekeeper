@@ -109,6 +109,10 @@ class Gatekeeper:
             if state and isinstance(kwargs.get("tool_call_id"), str) and kwargs["tool_call_id"]:
                 with self.ledger.transaction() as db:
                     history.finish(db, call_key(tool_name, args, kwargs), state, at=self.now().timestamp())
+        except Uninspectable:
+            if status != "blocked":
+                self.unhealthy.set()
+                logger.warning("Gatekeeper observed an uninspectable send outcome; further sends are blocked.")
         except Exception:
             self.unhealthy.set()
             logger.warning("Gatekeeper send observation failed; further sends are blocked until owner repair and reload.")

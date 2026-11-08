@@ -67,8 +67,8 @@ def terminal(args):
     lex.whitespace_split = True
     lex.commenters = ""
     syntax = list(lex)
-    if any(token and set(token) <= set(";&|()<>") for token in syntax) or any(c in normalized for c in "$`\n\r"):
-        raise ValueError("complex recognized shell command")
+    if any(token and set(token) <= set(";&|()<>") for token in syntax) or any(c in command for c in "$`\n\r*?[]{}~"):
+        raise ValueError("complex or expansion-bearing recognized shell command")
     if len(tokens) < 3 or PurePosixPath(tokens[0]).name not in {"imsg", "hermes"} or tokens[1] != "send":
         raise ValueError("wrapped send")
     program = PurePosixPath(tokens[0]).name
