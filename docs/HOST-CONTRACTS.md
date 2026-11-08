@@ -33,9 +33,23 @@ helpers are not `pre_tool_call` calls. The tool call Gatekeeper actually sees wh
 agent sends is `terminal` running `hermes send …` / `imsg send …`, including
 `terminal()` called from an `execute_code` script (Hermes dispatches those inner calls
 through `handle_function_call`, which fires `pre_tool_call`). The following are not
-inspected: `cronjob_manage` delivery, `connectors__<app>__<tool>` connector tools,
-`mcp_<server>_<tool>` MCP tools, platform tools (Discord, A2A, …), UI automation,
-and a send made from inside a script (`subprocess` in `python -c` or `execute_code`).
+parsed: `cronjob_manage` delivery, `connectors__<app>__<tool>` connector tools,
+`mcp__<server>__<tool>` MCP tools (`mcp_<server>_<tool>` in older spelling), platform
+tools (Discord, A2A, …), UI automation, and a send made from inside a script
+(`subprocess` in `python -c` or `execute_code`).
+
+Connector and MCP tool calls do fire `pre_tool_call` under those prefixed names
+(`tools/connectors/gateway/names.py`, `tools/mcp_tool_schema.py` in the Hermes source),
+and so does each entry of a batched `tool_call`, which Hermes dispatches through
+`handle_function_call` with its own call ID. Gatekeeper therefore sees the *name* and
+arguments of such a call but has no parser for its recipient, so it cannot check
+suppression, consent or quiet hours. Instead, when `escalate_unrecognized_sends` is on,
+a name matching the send vocabulary (see README) gets an `approve` directive with the
+reason `Gatekeeper: unrecognized send tool <name>; owner approval required. Gatekeeper
+cannot check consent/STOP/quiet hours for this tool.`, and a `cronjob_manage`/`cronjob`
+create/update/run carrying a non-`local` `deliver`/`target`/`failure_deliver` gets the
+same. `approve` is a request to the host's approval gate: it is auto-approved under
+`--yolo`, `approvals.mode: off` and `hermes -z`, where this escalation protects nothing.
 
 Host behaviors that bound the guarantee: a `pre_tool_call` callback that raises or
 times out is turned into a `block` directive by the host's dispatcher, and
@@ -50,7 +64,9 @@ approval bridge present it fails closed.
 ## Verification performed
 
 Unit tests (`pytest`) call the registered callbacks with synthetic public contexts and
-a real temporary SQLite database. They do not install Hermes.
+a real temporary SQLite database. They do not install Hermes. The unrecognized-send-tool
+escalation (names, cron arguments, settings, decision log) is covered only at this level;
+it has not been exercised through a running Hermes host's dispatcher.
 
 Host checks were run against Hermes v0.23.0 (`2bd378ed1b`) in an isolated, throw-away
 `HERMES_HOME` with no messaging credentials: the plugin installed from a `file://`

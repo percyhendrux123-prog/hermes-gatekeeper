@@ -9,11 +9,18 @@ this plugin—performs any permitted send and owns the approval interface.
 **Read "What it gates—and what it does not" before relying on it.** In a stock Hermes
 agent turn the model has no `send_message` tool, so the call this plugin practically
 sees is a literal `hermes send …` / `imsg send …` run through the `terminal` tool.
-Connector, MCP, cron-delivery, browser and script-based sends are not inspected.
+Those are checked in full (suppression, consent, quiet hours, threading, wording).
+Other tools whose *names* look like a send (connector, MCP and plain tools, and a
+`cronjob_manage` create/update/run with a delivery target) are **not** checked for
+consent, STOP or quiet hours; they only require owner approval. Browser or
+computer-use driving of an app and scripts that send from inside `python -c` or
+`execute_code` are not seen at all.
 
 Version 0.1.0. Checked against Hermes v0.23.0 with the real plugin loader, hook
 dispatcher and agent loop (scripted local model, stub send executables, invented
-contacts); it has not been run against live messaging platforms.
+contacts); it has not been run against live messaging platforms. The send-looking-tool
+escalation was tested with unit tests against synthetic hook contexts, not on a running
+Hermes host.
 
 ## Install
 
@@ -44,13 +51,55 @@ transport, background job or core override.
   `{"target":"platform:recipient[:thread]","message":"literal text"}`; `action=list`
   is read-only and unsupported actions/options are blocked, not guessed. Gatekeeper
   does not register or resurrect that tool.
-* **Not reached at all:** the `cronjob_manage` tool (scheduled delivery), hosted
-  connector tools (`connectors__<app>__…`, e.g. a Gmail or Slack send), MCP-server
-  tools, platform tools such as Discord or A2A, browser/computer-use driving of a
-  messaging app, and a script that sends from inside `execute_code` or `python -c`
-  (it is not seen as a send). Direct helper use by the CLI, cron, notifier or
-  adapters is not a tool-hook call. Ordinary gateway replies and streaming are not
-  gated.
+* **Send-looking tools it cannot parse: owner approval, no policy check.** With
+  `escalate_unrecognized_sends` on (the default), any other tool call whose **name**
+  matches the send vocabulary below returns an `approve` directive:
+  `Gatekeeper: unrecognized send tool <name>; owner approval required. Gatekeeper
+  cannot check consent/STOP/quiet hours for this tool.` This covers hosted connector
+  tools (`connectors__<app>__<tool>`, e.g. `connectors__gmail__send_email`,
+  `connectors__x__create_post`), MCP tools (`mcp__<server>__<tool>`, and the older
+  `mcp_<server>_<tool>` spelling, e.g. `mcp_twilio_send_sms`) and plain tool names
+  (`send_tweet`, `reply_to_thread`). **Gatekeeper does not parse these calls, so it
+  cannot look up the recipient and cannot apply suppression, consent, quiet hours,
+  threading or wording rules to them.** Approval is the only control. A suppressed
+  recipient reached through such a tool is asked about, not blocked.
+
+  The vocabulary is matched on whole words of the tool name (case-insensitive, camelCase
+  split, the `connectors__<app>__` / `mcp__<server>__` prefix ignored so an app called
+  `notify` or `sms` is not mistaken for a verb; both the full name and each name segment
+  are checked): `send`, `resend`, `reply`, `tweet`, `publish`; the nouns `sms`, `mms`, `dm`;
+  `text_message`; `post` with `message|msg|tweet|status|update|comment|reply|text|dm|toot|thread|story|to`
+  or after `create|new|add|make|write|submit|compose|schedule`; `message(s)|msg` after
+  `send|post|create|new|add|make|write|submit|compose|schedule` (or before `create|post|new`);
+  `compose`/`forward` with `email|mail|message`; `comment` creation on a social-network
+  name (`x`, `twitter`, `instagram`, `facebook`, `linkedin`, `tiktok`, `youtube`,
+  `reddit`, `mastodon`, `bluesky`, `threads`, …); `notify` only when the name or
+  arguments point at a person or channel; the bare tool names `email`/`mail`, and
+  `message`/`chat`/`text` only when called with a send action or a target plus a body;
+  glued forms such as `sendmail`, `sendEmail`, `createPost`. A leading read, delete or
+  draft word keeps a tool allowed: `list`, `get`, `search`, `read`, `fetch`, `find`,
+  `count`, `query`, `lookup`, `view`, `show`, `describe`, `retrieve`, `download`,
+  `export`, `check`, `history`, `inspect`, `summarize`, `validate`, `delete`, `remove`,
+  `cancel`, `archive`, `mark`, `trash`, `discard`, `draft`. So
+  `connectors__gmail__list_messages`, `connectors__gmail__get_message`,
+  `mcp_slack_search_messages`, `read_message`, `message_count`, `draft_email`
+  and `create_draft` are not escalated, while `get_and_send` and `draft_send_email` are.
+  The matcher looks only at the tool name, never at message text. It is a bounded list,
+  not a detector: a sender with an unrelated name (`push`, `blast`, `zap`) is not
+  caught unless you add a pattern.
+* **`cronjob_manage` / `cronjob`.** A `create`, `update`, `edit`, `run`, `run_now` or
+  `trigger` action that also carries a `deliver`, `target` or `failure_deliver` other
+  than `local` requires approval. `list`, `pause`, `resume`, `remove` and `cancel` do not,
+  and neither does a `run` of an existing job (its stored delivery target is not in the
+  call) or a `create` that omits `deliver` (the host then addresses the originating
+  chat).
+* **Not reached at all:** browser/computer-use driving of a messaging app; a script
+  that sends from inside `execute_code`, `python -c` or any other subprocess (it is not
+  seen as a send); platform tools whose names do not match the vocabulary; and any tool
+  with an unrelated name. Direct helper use by the CLI, cron, notifier or adapters is not
+  a tool-hook call. Ordinary gateway replies and streaming are not gated. Under
+  `--yolo`, `approvals.mode: off` and `hermes -z` the host auto-approves every `approve`
+  directive, so the escalation above does nothing there.
 * Recognized `terminal` commands are `hermes send` and `imsg send`, including
   explicit executable paths, `hermes -p NAME send` / `--profile NAME`, and
   `hermes-agent`. Simple, single-line literal forms can be evaluated:
@@ -74,8 +123,9 @@ transport, background job or core override.
 * Deferred `tool_call` / `multi_tool_use.parallel` batches are recursively checked;
   the strictest decision wins. Malformed/oversized/deep batches block. Leaves are
   checked again; the outer batch does not create duplicate send reservations.
-  Only `send_message` and `terminal` leaves are recognized: a `connectors__…` leaf in
-  such a batch is not inspected.
+  Only `send_message` and `terminal` leaves are parsed by the batch check itself. A
+  send-looking leaf such as `connectors__gmail__send_email` is escalated when Hermes
+  dispatches it, because every batched call fires its own `pre_tool_call`.
 * This is **not an egress firewall or an OS sandbox**. `curl`, `osascript`, custom
   scripts, encoded/dynamically constructed sends, renamed tools, direct Python
   calls and arbitrary connector tools are out of scope. Other hooks/middleware
@@ -105,6 +155,7 @@ known identity. `require_consent: true` blocks unrecorded alternate addresses.
 | Pending or unanswered outbound in this thread | **approve**, however old |
 | Configured minimum gap not elapsed, even after a reply | **approve** |
 | Not an exact owner-filled approved template | **approve** |
+| Send-looking tool Gatekeeper cannot parse (connector, MCP, plain name, cron delivery) | **approve**; consent, STOP and quiet hours are *not* checked |
 | Every applicable rule passes | no Gatekeeper veto; other Hermes guards still apply |
 | Invalid settings, unreadable/corrupt storage, log failure or evaluation error | **block** recognized sends |
 
@@ -175,7 +226,25 @@ min_gap_seconds: 0
 templates:
   - "Demo notice for ${topic}."
 stop_keywords: [STOP, STOPALL, UNSUBSCRIBE, CANCEL, END, QUIT]
+escalate_unrecognized_sends: true
+extra_send_tool_patterns: ["mcp__acme__*push*"]
+allow_tools: ["connectors__gmail__send_email"]
 ```
+
+* `escalate_unrecognized_sends` (default `true`) turns the send-looking-name approval
+  and the `cronjob_manage` delivery approval on or off together. Turning it off removes
+  that protection entirely.
+* `extra_send_tool_patterns` (default empty) adds case-insensitive `fnmatch` globs
+  (`*`, `?`) tested against the full tool name and each name segment. A match
+  escalates; read-word exemptions do not apply to your own patterns.
+* `allow_tools` (default empty) lists **exact**, case-sensitive tool names you trust.
+  Those are never escalated by this check. It does not switch off any check on
+  `send_message` or `terminal`, and trusting a connector tool also means trusting every
+  recipient it can reach, because Gatekeeper cannot check consent, STOP or quiet hours
+  for it.
+* Invalid values (a non-boolean switch, a non-list, an empty, padded or over-long
+  entry) make the whole settings block invalid: recognized sends are blocked until it is
+  fixed, and the name-based escalation keeps running on its defaults.
 
 Template variables come **only** from local-owner recipient records, never tool
 arguments/model-provided fill values. `$topic` and `${topic}` are simple string
@@ -220,7 +289,11 @@ errors fail closed. Linux/macOS only; no cross-profile/shared-ledger override.
 
 Each gated decision records UTC epoch time, channel, SHA-256 recipient/thread IDs,
 message SHA-256, stable rule and outcome. Uninspectable calls use an unresolved
-identity and hash their input envelope. Inbound STOP decisions, consent source/date,
+identity and hash their input envelope. An escalation (rule `unrecognized_send_tool`,
+outcome `approve`) uses the same unresolved identity and hashes the tool name plus
+arguments; its channel column holds the tool name when it is a well-formed name of up to
+64 characters (otherwise `unrecognized_tool`), so `/gatekeeper log` shows which tool asked.
+Arguments are never stored in clear. Inbound STOP decisions, consent source/date,
 timezone/region, owner template variables, pending/sent/failed thread events and
 inbound-event hashes are also stored. **No raw outbound/inbound message-body log
 exists.** Identity columns store hashes, not raw recipient IDs. Source strings and template variables

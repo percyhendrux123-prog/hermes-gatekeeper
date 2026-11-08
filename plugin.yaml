@@ -1,7 +1,7 @@
 name: hermes-gatekeeper
 title: Gatekeeper
 version: "0.1.0"
-description: "Deterministic owner-configured policy gates for recognized outbound messaging tool calls."
+description: "Deterministic owner-configured policy gates for recognized outbound messaging tool calls; other send-looking tools require owner approval."
 author: Percy Keith Stewart
 license: MIT
 requires_hermes: ">=0.22.5"
@@ -40,3 +40,15 @@ config_schema:
     type: list
     default: [STOP, STOPALL, UNSUBSCRIBE, CANCEL, END, QUIT]
     description: "Whole-text, case-insensitive STOP-family keywords after trimming whitespace. Not substring or language detection."
+  escalate_unrecognized_sends:
+    type: bool
+    default: true
+    description: "Ask for owner approval when a tool Gatekeeper cannot parse has a send-looking name (send, reply, post_message, create_post, publish, tweet, sms, dm, compose email, ...) or when a cronjob create/update/run names a delivery target. Gatekeeper cannot check consent, STOP or quiet hours for these. Has no effect under --yolo, approvals off or hermes -z."
+  extra_send_tool_patterns:
+    type: list
+    default: []
+    description: "Extra case-insensitive glob patterns (fnmatch, e.g. 'mcp__acme__*push*') matched against the full tool name and each name segment; a match escalates like a send-looking name."
+  allow_tools:
+    type: list
+    default: []
+    description: "Exact tool names the owner trusts; never escalated by the unrecognized-send check. Has no effect on send_message or terminal, which are always evaluated."

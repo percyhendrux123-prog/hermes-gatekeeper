@@ -4,7 +4,7 @@ import json
 import logging
 from threading import Event
 
-from . import consent, double_text, history, quiet_hours, suppression, wording
+from . import consent, double_text, escalate, history, quiet_hours, suppression, wording
 from .classify import classify, Uninspectable
 from .storage import body_hash
 
@@ -57,6 +57,29 @@ class Gatekeeper:
             logger.warning("Gatekeeper could not persist a blocked decision; send remains blocked.")
         return directive("block", [rule])
 
+    def escalation(self, tool_name, args, kwargs):
+        """Owner approval for a send-looking tool Gatekeeper cannot parse (never a pass)."""
+        try:
+            label = escalate.unrecognized_send(tool_name, args, self.settings)
+        except Exception:
+            label = "send-looking name"  # a broken matcher asks rather than waves the call through
+        if label is None:
+            return None
+        try:
+            name = escalate.safe_name(tool_name)
+            with self.ledger.transaction() as db:
+                # Tool name (when well-formed) in the channel column; arguments only as a hash.
+                self.ledger.log(db, name if name == tool_name else "unrecognized_tool", "unresolved", "",
+                                json.dumps([tool_name, args], sort_keys=True, default=str),
+                                "unrecognized_send_tool", "approve", self.now().timestamp())
+        except Exception:
+            logger.warning("Gatekeeper could not persist an escalation; the approval request still stands.")
+        try:
+            key = call_key(tool_name, args, kwargs)
+        except Exception:
+            key = ""
+        return {"action": "approve", "message": escalate.reason(tool_name, label), "rule_key": "gatekeeper:" + key}
+
     def before(self, tool_name="", args=None, **kwargs):
         try:
             sends = classify(tool_name, args)
@@ -65,7 +88,7 @@ class Gatekeeper:
         except Exception:
             return self.error("gate_error", tool_name, args)
         if not sends:
-            return None
+            return self.escalation(tool_name, args, kwargs)
         try:
             if self.config_error or self.unhealthy.is_set():
                 return self.error("gate_unavailable", tool_name, args)

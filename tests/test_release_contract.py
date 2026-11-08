@@ -66,3 +66,31 @@ def test_catalog_and_readme_state_the_real_send_path():
         assert "terminal" in text and "execute_code" in text
     assert "not currently registered" in readme and "no model-callable send_message" in catalog
     assert "connectors__" in readme and "cronjob_manage" in readme
+
+
+def test_docs_state_the_unrecognized_send_tool_behavior_and_its_limits():
+    readme = (ROOT / "README.md").read_text()
+    catalog = (ROOT / "CATALOG-ENTRY.yaml").read_text()
+    host = (ROOT / "docs" / "HOST-CONTRACTS.md").read_text()
+    changelog = (ROOT / "CHANGELOG.md").read_text()
+    for name in ("escalate_unrecognized_sends", "extra_send_tool_patterns", "allow_tools"):
+        assert name in readme and name in changelog
+    assert "unrecognized send tool <name>; owner approval required" in readme
+    assert "cannot check consent/STOP/quiet hours" in readme and "cannot check consent/STOP/quiet hours" in host
+    assert "unrecognized_send_tool" in readme and "unrecognized_send_tool" in changelog
+    for text in (readme, host):
+        assert "--yolo" in text and "approvals.mode" in text
+    assert "python -c" in readme and "computer-use" in readme
+    assert "owner approval" in catalog and "browser" in catalog.lower() and "subprocess" in catalog
+    assert "connectors__" in catalog and "cronjob_manage" in catalog
+
+
+def test_readme_vocabulary_matches_the_code_tables():
+    from gatekeeper import escalate
+    readme = (ROOT / "README.md").read_text()
+    for token in sorted(escalate.SEND_TOKENS | escalate.NOUN_TOKENS | escalate.READ_TOKENS | {"draft"}):
+        assert f"`{token}`" in readme, token
+    for verb in sorted(escalate.CREATE_VERBS):
+        assert verb in readme, verb
+    for site in sorted(escalate.POST_OBJECTS):
+        assert site in readme, site
