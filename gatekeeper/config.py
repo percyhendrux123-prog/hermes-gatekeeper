@@ -3,6 +3,7 @@ from dataclasses import dataclass, field, fields
 
 from .quiet_hours import window
 from .suppression import KEYWORDS
+from .wording import validate_template
 
 
 @dataclass(frozen=True)
@@ -36,5 +37,7 @@ class Settings:
                 raise ValueError("invalid string list")
         if not result.stop_keywords or any(v.strip() != v or len(v.split()) != 1 for v in result.stop_keywords):
             raise ValueError("invalid STOP keywords")
+        for text in result.templates:
+            validate_template(text)
         return cls(**{**data, "templates": tuple(result.templates),
                       "stop_keywords": tuple(v.upper() for v in result.stop_keywords)})
