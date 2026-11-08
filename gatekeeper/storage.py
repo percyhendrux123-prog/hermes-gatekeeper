@@ -2,6 +2,7 @@
 from contextlib import closing, contextmanager
 from hashlib import sha256
 import re
+import sqlite3
 
 
 def body_hash(value):
@@ -29,6 +30,9 @@ def thread_id(value):
 
 
 _SCHEMA = (
+    "CREATE TABLE IF NOT EXISTS contacts (recipient_id TEXT NOT NULL, channel TEXT NOT NULL, "
+    "source TEXT NOT NULL, date TEXT NOT NULL, timezone TEXT NOT NULL, region TEXT NOT NULL, "
+    "variables TEXT NOT NULL DEFAULT '{}', PRIMARY KEY(recipient_id,channel))",
     "CREATE TABLE IF NOT EXISTS suppressions (recipient_id TEXT PRIMARY KEY)",
     "CREATE TABLE IF NOT EXISTS decisions (id INTEGER PRIMARY KEY, at REAL NOT NULL, "
     "channel TEXT NOT NULL, recipient_id TEXT NOT NULL, thread_id TEXT NOT NULL, "
@@ -43,7 +47,7 @@ class Ledger:
     @contextmanager
     def transaction(self):
         with closing(self.connect()) as db:
-            db.row_factory = __import__("sqlite3").Row
+            db.row_factory = sqlite3.Row
             db.execute("BEGIN IMMEDIATE")
             try:
                 for statement in _SCHEMA:
