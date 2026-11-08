@@ -85,6 +85,10 @@ class Gatekeeper:
         except Exception:
             return self.error("gate_error", tool_name, args)
 
+    def command(self, raw="", **kwargs):
+        from .commands import command
+        return command(self, raw, **kwargs)
+
     def after(self, tool_name="", args=None, result="", status="", **kwargs):
         try:
             sends = classify(tool_name, args)
