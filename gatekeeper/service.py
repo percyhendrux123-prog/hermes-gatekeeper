@@ -85,6 +85,10 @@ class Gatekeeper:
         except Exception:
             return self.error("gate_error", tool_name, args)
 
+    def inbound(self, **kwargs):
+        from .inbound import observe
+        return observe(self, **kwargs)
+
     def command(self, raw="", **kwargs):
         from .commands import command
         return command(self, raw, **kwargs)
