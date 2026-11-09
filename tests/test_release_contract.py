@@ -54,6 +54,9 @@ def test_public_files_carry_no_internal_references():
     for path in [ROOT / "README.md", ROOT / "CHANGELOG.md", ROOT / "CATALOG-ENTRY.yaml",
                  *(ROOT / "docs").glob("*.md"), *(ROOT / "gatekeeper").glob("*.py")]:
         text = path.read_text()
+        if path.name == "README.md":
+            # The README's "Works with" section names the sibling plugins on purpose.
+            text = text.split("## Works with")[0]
         assert not [word for word in banned if word in text], path.name
     catalog = (ROOT / "CATALOG-ENTRY.yaml").read_text()
     assert "repo: https://github.com/percyhendrux123-prog/hermes-gatekeeper\n" in catalog
