@@ -1,5 +1,7 @@
 # Gatekeeper
 
+> **Part of the seat**, a collection of Hermes plugins that work together: watch, decide, act, prove, hand off. This one covers **act**: it checks the messages it recognizes against your rules. [See the whole collection](https://github.com/percyhendrux123-prog#the-seat-a-collection-of-hermes-plugins).
+
 **A deterministic gate for recognized outbound messaging calls in Hermes.**
 The agent drafts; Gatekeeper evaluates the owner's policy before dispatch. Hermes—not
 this plugin—performs any permitted send and owns the approval interface.
