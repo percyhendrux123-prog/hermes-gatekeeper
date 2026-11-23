@@ -342,6 +342,15 @@ loader, hook dispatcher, approval gate, local-session slash-command context) is
 exercised separately with `hermes plugins validate`/`doctor` and the manual checks in
 `docs/HOST-CONTRACTS.md`.
 
+## Also for Claude Code
+
+The same checks ship as a Claude Code plugin in [`claude-plugin/gatekeeper`](claude-plugin/gatekeeper). The policy engine is the same code, copied byte for byte. Claude Code has no `send_message`, so you list your MCP send tools in a small `policy.json`; a configured tool gets the full check (STOP, consent, quiet hours, threading, wording), a literal `imsg send` in `Bash` gets it too, and any other send-looking MCP tool is held for your approval. A failed check denies the call; an uncertain one is held as a permission prompt. It is separate from the Hermes plugin above and needs neither Hermes nor its data. The plugin README lists what Claude Code cannot do here, including no inbound STOP.
+
+```sh
+claude plugin marketplace add percyhendrux123-prog/hermes-gatekeeper
+claude plugin install axiom-gatekeeper@deploy-axiom-gatekeeper
+```
+
 ## Works with
 
 Gatekeeper is one part of an operator layer for Hermes Agent, built by Deploy Axiom. Each plugin installs on its own and none requires another. Together they cover a working agent from first reply to finished task:
