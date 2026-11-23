@@ -1,0 +1,16 @@
+{
+  "name": "deploy-axiom-gatekeeper",
+  "owner": {
+    "name": "Deploy Axiom"
+  },
+  "metadata": {
+    "description": "Gatekeeper for Claude Code, from Deploy Axiom."
+  },
+  "plugins": [
+    {
+      "name": "axiom-gatekeeper",
+      "source": "./claude-plugin/gatekeeper",
+      "description": "Checks outbound messaging tool calls against your own rules before they run, and holds or denies the call when a check fails."
+    }
+  ]
+}

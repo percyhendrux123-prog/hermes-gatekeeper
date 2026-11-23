@@ -1,0 +1,21 @@
+{
+  "name": "axiom-gatekeeper",
+  "displayName": "Gatekeeper",
+  "version": "0.1.0",
+  "description": "Checks outbound messaging tool calls against your own rules before they run: STOP, consent, quiet hours, no double-text, approved wording. Holds or denies the call when a check fails.",
+  "author": {
+    "name": "Deploy Axiom"
+  },
+  "homepage": "https://github.com/percyhendrux123-prog/hermes-gatekeeper",
+  "repository": "https://github.com/percyhendrux123-prog/hermes-gatekeeper",
+  "license": "MIT",
+  "keywords": [
+    "messaging",
+    "consent",
+    "opt-out",
+    "quiet-hours",
+    "hooks",
+    "guardrails"
+  ],
+  "icon": "./.claude-plugin/icon.png"
+}
